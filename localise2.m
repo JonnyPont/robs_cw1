@@ -9,11 +9,16 @@ botSim.setMap(modifiedMap);
 
 %generate some random particles inside the map
 num =300; % number of particles
+sensors = 20;
 particles(num,1) = BotSim; %how to set up a vector of objects
 for i = 1:num
     particles(i) = BotSim(modifiedMap);  %each particle should use the same map as the botSim object
     particles(i).randomPose(0); %spawn the particles in random locations
+    particles(i).setScanConfig(particles(i).generateScanConfig(sensors));
+
 end
+botSim.setScanConfig(botSim.generateScanConfig(sensors));
+
 %% Localisation code
 maxNumOfIterations = 30;
 n = 0;
@@ -26,7 +31,6 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     locations = zeros(2,num);
     angles = zeros(1,num);
     angles2 = angles;
-    particleDistance = [];
     for i = 1:num %For each particle
         locations(:,i) = particles(i).getBotPos(); % Save particle location
     end
@@ -37,48 +41,35 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     
     for i = 1:num
         particleDistance = particles(i).ultraScan(); % Particle distance reading
-        currPos = particleDistance; % Current particle position object
-%         locations(:,i) = particles(i).getBotPos(); % Save particle location
+        currBestDist = particleDistance; % Current particle position object
        
         %Maybe investigate NORMPDF - normpdf returns high for identical
         %vectors when variance is low. High variance and identical vectors
         %doesn't return high value. A vector and its backwards self return
         %low no matter what.
-        currRotProb = mean(normpdf(particleDistance,robotDist,0.2)); %Probability of robot being at current orientation
+        currRotProb = mean(normpdf(particleDistance,robotDist,2)); %Probability of robot being at current orientation
         newAngle = particles(i).getBotAng(); % Angle of particle
-        
-        %COMMENTING OUT THE ANGLE MAKES THE CODE WORK
-        %AND PARTICLES CONVERGE REALLY QUICKLY. I DON'T UNDERSTAND WHY, BUT
-        %SOMETHING ABOUT SETTING THE NEW ANGLE ISN'T WORKING. IMPLIES
-        %RANDOMNESS
         for j = 1:size(particleDistance)-1 % Check all other particle orientations
-            %Find the most similar orientation of reading and assume
-            %correct.
+            %Find the most similar orientation of reading and assume correct.
             possDist = circshift(particleDistance,j); % Find possible rotation distances
-            newRotProb = mean(normpdf(possDist,robotDist,0.2)); % Probability of possible rotation
+            newRotProb = mean(normpdf(possDist,robotDist,2)); % Probability of possible rotation
             if newRotProb < currRotProb % If new rotation appears better than previous
-                currPos = possDist; % Set current position distances to the rotated distances
+                currBestDist = possDist; % Set current position distances to the rotated distances
                 currRotProb = newRotProb; % Current best probability gets set to new orientation
                 rotAngle = 2*pi*(j/length(particleDistance));
                 newAngle = particles(i).getBotAng() + rotAngle;  % Update angle
             end
         end
-        probabilities(i) = mean(normpdf(currPos,robotDist,0.2)) + dampFactor; % Mean probability of distance measures to robot
-%         max(probabilities)
+        probabilities(i) = currRotProb + dampFactor; % mean(normpdf(currBestDist,robotDist,2)) % Mean probability of distance measures to robot
         angles(i) = newAngle; % Set angle %Using this as a debugger, it appears that the angles are converging!!
-        angles2(i) = botSim.getBotAng();
+       % angles2(i) = botSim.getBotAng();
     end
-    max(probabilities);
-%     angles2
-%     angles
     %% Write code for resampling your particles
 
     totalWeight = sum(probabilities);
-    
     for i = 1:num
         probabilities(i) = probabilities(i)/totalWeight;
-    end
-    
+    end    
     max(probabilities)
     
     %Roulette Wheel Sampling
@@ -90,8 +81,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
             seed = seed - score;
             j = j+1;
         end
-        j;
-        particles(i).setBotPos(locations(:,j)');
+        particles(i).setBotPos(locations(:,j)' + 2*rand-1);
         particles(i).setBotAng(angles(j)+0.3*rand); % Angle never seems to converge
     end
     
@@ -101,14 +91,14 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
 %         %proportional to its size. I think the randsample function is a
 %         %poor way to get around this.
 %         newLoc = locations(:,randsample(1:num,1,true,probabilities')); %Maybe randsample is bonking ma code
-%         particles(i).setBotPos(newLoc') % Position converges, albeit often incorrectly
+%         particles(i).setBotPos(newLoc' + 2*rand-1) % Position converges, albeit often incorrectly
 %         particles(i).setBotAng(angles(i)+0.1*rand) % Angle never seems to converge
 %     end
 %     
-    for i =1:0.1*num
+    for i =1:0.2*num
         someLoc = floor(rand*num)+1;
         particles(someLoc).randomPose(0)
-        particles(someLoc).setBotAng(particles(i).getBotAng()+2*pi*rand)
+        particles(someLoc).setBotAng(pi - 2*pi*rand)
     end
     
 
@@ -124,14 +114,14 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         break
     else
         robotDist = botSim.ultraScan();
-        if robotDist(1) < 5
+        if robotDist(1) < 10
             turn = pi + 0.1*pi*(rand*2 - 1);
-            move = 2;
+            move = 4;
             botSim.turn(turn)
             botSim.move(move)
         else
             turn = 0.25*pi*(rand*2 - 1);
-            move = 4*rand;
+            move = 8*rand;
             botSim.turn(turn)
             botSim.move(move)
         end
