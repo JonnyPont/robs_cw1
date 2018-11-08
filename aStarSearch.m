@@ -1,8 +1,9 @@
-function [ output_args ] = aStarSearch(start,goal)
-% A* search algorithm
+function [ nextNode ] = aStarSearch(start,goal)
+% A* search algorithm - printing the values of the nodes that get entered
+% into open shows there must be some sort of bug somewhere for nodes where i=j 
 
 closed = [];
-open = [start];
+open = start;
 
 map=[0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105];  %default map
 
@@ -12,12 +13,13 @@ map=[0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105];  %default map
 %to be able to get anywhere as the robot will not move in exact integer
 %increments.
 sizes = max(map);
-mapGrid = zeros(sizes(1),sizes(2));
-fCostsMap = zeros(sizes(1),sizes(2))+1000; %make a cost matrix
-fCostsMap(start(1),start(2)) = 0; %set start cost to zero 
+mapGrid = zeros(sizes(1)+1,sizes(2)+1); %overcome 0 indexing
+size(mapGrid)
+fCostsMap = zeros(sizes(1)+1,sizes(2)+1)+1000; %make a cost matrix - overcoming 1 indexing
+fCostsMap(start(1)+1,start(2)+1) = 0; %set start cost to zero 
 for i=1:sizes(1)
     for j=1:sizes(2)
-        if botSim.pointInsideMap(mapGrid(i,j)) == 1 %inpolygon(i,j,map(:,1),map(:,2)) == 1 %pointInsideMap() will be better once botSim objects are created
+        if inpolygon(i,j,map(:,1),map(:,2)) == 1 %This is equivalent to botSim.pointInsideMap(mapGrid(i,j)) == 1 
             mapGrid(i,j) = 1;
         elseif inpolygon(i,j,map(:,1),map(:,2)) ~= 1
             mapGrid(i,j) = 0;
@@ -26,19 +28,23 @@ for i=1:sizes(1)
 end
 
 
-
 while length(open) ~= 0
    %open all nodes in open storing the cost f(x) to get to them. PROBLEM:
    %This currently will just find that the values of the f function are
    %1000 for all new nodes. When do these need updating? --- I think this will
    %be fine as the nodes here will have been put into the "open list" 
-   currentNode = [open(1),open(1+length(open))];
-   currentNodeF = fCostsMap(currentNode(1),currentNode(2));
-   for i = 1:length(open)
-       testNode = [open(i),open(i+length(open))];
-       testNodeF = fCostsMap(testNode(1),testNode(2));
-       if testNodeF < currentNodeF
+   openSize = size(open); %Get list length of open
+   currentNode = open(1,:); % Get two corresponding points - slightly concerned about this method open(1+openSize(1))
+   %I need some sort of way of preventing nodes from outside of the map
+   %being expanded. Quite a serious issue as everything will break if one
+   %is tried to be opened.
+   currentNodeF = fCostsMap(currentNode(1)+1,currentNode(2)+1);
+   for i = 1:openSize(1)
+       testNode = open(i,:); 
+       testNodeF = fCostsMap(testNode(1)+1,testNode(2)+1);
+       if testNodeF <= currentNodeF
            currentNode = testNode;
+           currentNodeLoc = i;
            currentNodeF = testNodeF;
        end
    end
@@ -48,12 +54,12 @@ while length(open) ~= 0
    %At this point, the currentNode should be the node with the lowest f(x)
    %score
    
-   
    if currentNode == goal
-       make_path()
+       make_path() %this is still pseudocode I think
    end
-   open.remove(currentNode)
-   closed.add(currentNode)
+
+   open(currentNodeLoc,:) = [];
+   closed(end+1,:) = [currentNode(1) currentNode(2)];
    
    %This loop should run through and find all neighbours of the currentNode
    %ready to be tested and update the f(x) values of all these new nodes.
@@ -61,19 +67,23 @@ while length(open) ~= 0
    for i = -1:1:1
        for j = -1:1:1
            neighbour = [currentNode(1)+i,currentNode(2)+j];
-           neighbourList = [neighbourList;neighbour];
-           %Find F of neighbour
-           neighbourF = currentNodeF + norm([[0 0] [i j]]); %fcost of node + distance to neighbour
-           %Update the neighbour's fCost matrix value IF this path to the specific node is shorted.
-           if neighbourF < fCostsMap(neighbour(1),neighbour(2))
-               fCostsMap(neighbour(1),neighbour(2)) = neighbourF;
-           end    
+           if inpolygon(neighbour(1)+1,neighbour(2)+1,map(:,1),map(:,2)) == 1 %no need for +1 here due to both being pre-calibrated
+               neighbourList = [neighbourList;neighbour];
+               %Find F of neighbour
+               neighbourF = currentNodeF + norm([[0 0] [i j]]); %fcost of node + distance to neighbour
+               %Update the neighbour's fCost matrix value IF this path to the specific node is shorted.
+               if neighbourF < fCostsMap(neighbour(1)+1,neighbour(2)+1)
+                   fCostsMap(neighbour(1)+1,neighbour(2)+1) = neighbourF;
+               end
+           end
        end
    end
    
-   
-   
-   open.add('All surrounding states')
+   neighbourListLength = size(neighbourList);
+   for i = 1:neighbourListLength(1)
+       open(end+1,:) = neighbourList(i);
+   end    
+%    open.add('All surrounding states')
 
 %    calculate h(x) for all of the neighbouring nodes  --- I've only made a
 %    very small start on this. I fear I'm going too deep without having
@@ -105,5 +115,4 @@ while length(open) ~= 0
    
    %select the node with lowest G and either terminate if it is the goal
    %state or repeat again if it isn't
-    return currentNode;
 end
