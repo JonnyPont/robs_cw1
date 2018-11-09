@@ -15,9 +15,19 @@ map=[0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105];  %default map
 sizes = max(map);
 mapGrid = zeros(sizes(1)+1,sizes(2)+1); %overcome 0 indexing
 size(mapGrid)
-gCostsMap = zeros(sizes(1)+1,sizes(2)+1)+1000; %make a cost matrix - overcoming 1 indexing
-gCostsMap(start(1)+1,start(2)+1) = 0; %set start cost to zero 
+% gCostsMap(start(1)+1,start(2)+1) = 0; %set start cost to zero 
+
+
+% initialise g(x) and h(x) based on euclidean distances
+gCostsMap = zeros(sizes(1)+1,sizes(2)+1); %make a cost matrix - overcoming 1 indexing
 hCostsMap = zeros(sizes(1)+1,sizes(2)+1);
+for i=1:sizes(1)+1
+    for j=1:sizes(2)+1
+        gCostsMap(i,j) = distance([i j],start);
+        hCostsMap(i,j) = distance([i j],goal);
+    end
+end    
+
 fCostsMap = gCostsMap + hCostsMap; % Which node is explored next completely depends on the fCostsMap. I will make sure this happens after ensuring heuristics get included and added in the script.
 for i=1:sizes(1)
     for j=1:sizes(2)
@@ -31,15 +41,9 @@ end
 
 
 while length(open) ~= 0
-   %open all nodes in open storing the cost f(x) to get to them. PROBLEM:
-   %This currently will just find that the values of the f function are
-   %1000 for all new nodes. When do these need updating? --- I think this will
-   %be fine as the nodes here will have been put into the "open list" 
+   %open all nodes in open storing the cost g(x) to get to them.
    openSize = size(open); %Get list length of open
    currentNode = open(1,:); % Get two corresponding points - slightly concerned about this method open(1+openSize(1))
-   %I need some sort of way of preventing nodes from outside of the map
-   %being expanded. Quite a serious issue as everything will break if one
-   %is tried to be opened.
    currentNodeG = gCostsMap(currentNode(1)+1,currentNode(2)+1);
    for i = 1:openSize(1)
        testNode = open(i,:); 
@@ -51,12 +55,12 @@ while length(open) ~= 0
        end
    end
    
-   %Use NORM as a function to find Euclidean Distance
-   
    %At this point, the currentNode should be the node with the lowest f(x)
    %score
    
    if currentNode == goal
+       fprintf("YEET")
+       break
        make_path() %this is still pseudocode I think
    end
 
@@ -69,11 +73,11 @@ while length(open) ~= 0
    for i = -1:1:1
        for j = -1:1:1
            neighbour = [currentNode(1)+i,currentNode(2)+j];
-           if inpolygon(neighbour(1)+1,neighbour(2)+1,map(:,1),map(:,2)) == 1 %no need for +1 here due to both being pre-calibrated
+           if inpolygon(neighbour(1),neighbour(2),map(:,1),map(:,2)) == 1 %no need for +1 here due to both being pre-calibrated
                neighbourList = [neighbourList;neighbour];
-               %Find F of neighbour
-               neighbourG = currentNodeG + norm([[0 0] [i j]]); %fcost of node + distance to neighbour
-               %Update the neighbour's fCost matrix value IF this path to the specific node is shorted.
+               %Find G of neighbour
+               neighbourG = currentNodeG + norm([[0 0] [i j]]); %gcost of node + distance to neighbour
+               %Update the neighbour's gCost matrix value IF this path to the specific node is shorted.
                if neighbourG < gCostsMap(neighbour(1)+1,neighbour(2)+1)
                    gCostsMap(neighbour(1)+1,neighbour(2)+1) = neighbourG;
                end
@@ -81,20 +85,32 @@ while length(open) ~= 0
        end
    end
    
+   %Check to see if a neighbour has already been explored. - hasn't been
+   %tested for functionality
    neighbourListLength = size(neighbourList);
+   lengthClosed = size(closed);
    for i = 1:neighbourListLength(1)
-       open(end+1,:) = neighbourList(i);
+       alreadyExplored = 0;
+       for j = 1:lengthClosed(1)
+           if neighbourList(i,:) == closed(j,:)
+                alreadyExplored = 1;
+           end
+       end
+       if alreadyExplored == 0
+            open(end+1,:) = neighbourList(i);
+       end
    end    
 
 %    calculate h(x) for all of the neighbouring nodes  --- I've only made a
 %    very small start on this. I fear I'm going too deep without having
 %    tested any of the code so far.
-   for i = 1:neighbourListLength
-       if [neighbour(i),neighbour(i+length(neighbourList))] ISMEMBER closed
-           continue
-       end
-   end
-%    
+%    heuristics = zeros(neighbourListLength(1),1);
+%    for i = 1:neighbourListLength(1)
+%         heuristics(i) = distance(neighbourList(i,:),goal);
+%    end
+
+fCostsMap
+
 %    for 'each neighbour of currentNode(in all directions)'
 %         if neighbour 'in closed'
 %             skip
