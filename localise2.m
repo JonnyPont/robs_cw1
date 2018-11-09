@@ -1,4 +1,4 @@
-function [botSim] = localise2(botSim,map,target)
+function [botSim,probabilities] = localise2(botSim,map,target)
 %This function returns botSim, and accepts, botSim, a map and a target.
 %LOCALISE Template localisation function
 
@@ -9,13 +9,12 @@ botSim.setMap(modifiedMap);
 
 %generate some random particles inside the map
 num =300; % number of particles
-sensors = 20;
+sensors = 6;
 particles(num,1) = BotSim; %how to set up a vector of objects
 for i = 1:num
     particles(i) = BotSim(modifiedMap);  %each particle should use the same map as the botSim object
     particles(i).randomPose(0); %spawn the particles in random locations
     particles(i).setScanConfig(particles(i).generateScanConfig(sensors));
-
 end
 botSim.setScanConfig(botSim.generateScanConfig(sensors));
 
@@ -42,8 +41,8 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     %Matrix initialisations
     probabilities = zeros(1,num);
     partWeight = zeros(sensors,1);
-    dampFactor = 1e-30;
-    var = 1;
+    dampFactor = 0;
+    var = 100;
     
     for i = 1:num
         particleDistance = particles(i).ultraScan(); % Particle distance reading
@@ -59,6 +58,9 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
             currDiff = norm(possDist - robotDist);
             partWeight(j) = (1/sqrt(2*pi*var))*exp(-(currDiff)^2/(2*var));
         end
+        [bestProb,bestRot] = max(partWeight);
+        probabilities(i) = bestProb + dampFactor; % mean(normpdf(currBestDist,robotDist,2)) % Mean probability of distance measures to robot
+        angles(i) = particles(i).getBotAng() + 2*pi*(bestRot/sensors); % Set angle %Using this as a debugger, it appears that the angles are converging!!
         
 %         difference = norm(robotDist-currBestDist);
 %         currRotProb = (1/sqrt(2*pi*var))*exp(-(difference)^2/(2*var));
@@ -78,10 +80,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
 %             end
 %         end
 
-        [bestProb,bestRot] = max(partWeight);
-        probabilities(i) = bestProb + dampFactor; % mean(normpdf(currBestDist,robotDist,2)) % Mean probability of distance measures to robot
-        angles(i) = particles(i).getBotAng() + 2*pi*(bestRot/sensors); % Set angle %Using this as a debugger, it appears that the angles are converging!!
-       % angles2(i) = botSim.getBotAng();
+      % angles2(i) = botSim.getBotAng();
     end
     %% Write code for resampling your particles
 
@@ -93,17 +92,24 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     
     %Roulette Wheel Sampling
     for i=1:num
-        seed = rand; %Cannot exceed 1 as cumsum is 1.
-        j=1;
-        while seed > 0 && j < 300
-            score = probabilities(j);
-            seed = seed - score;
-            j = j+1;
-        end
-        particles(i).setBotPos(locations(:,j)' + 2*rand-1);
-        particles(i).setBotAng(angles(j)+0.3*rand); % Angle never seems to converge
+        seed = rand(); %Cannot exceed 1 as cumsum is 1.
+        cumProbs = cumsum(probabilities);
+        newLocIndex = find(seed <= cumProbs,1);
+        particles(i).setBotPos([locations(1,newLocIndex)'+2*rand-1 locations(2,newLocIndex)'+2*rand-1]);
+        particles(i).setBotAng(angles(newLocIndex)+0.2*rand-0.1); % Angle never seems to converge
     end
-    
+
+%     newParticleLocations = zeros(num, 3);   
+%     for i = 1:num
+%         j = find(rand() <= cumsum(probabilities),1);
+%         newParticleLocations(i, 1:2) = particles(j).getBotPos();
+%         newParticleLocations(i, 3) = particles(j).getBotAng();
+%     end
+%     
+%     for i=1:num
+%         particles(i).setBotPos([newParticleLocations(i,1)+ 4*rand-2, newParticleLocations(i,2)+ 4*rand-2]);
+%         particles(i).setBotAng(newParticleLocations(i,3)+0.02*rand-0.01);
+%     end
 %     for i =1:num
 %         %Currently the highest probability points are being lost. A very
 %         %high probability point should immediately spawn a huge amount
@@ -114,7 +120,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
 %         particles(i).setBotAng(angles(i)+0.1*rand) % Angle never seems to converge
 %     end
 %     
-    for i =1:0.2*num
+    for i =1:0.1*num
         someLoc = floor(rand*num)+1;
         particles(someLoc).randomPose(0)
         particles(someLoc).setBotAng(pi - 2*pi*rand)
