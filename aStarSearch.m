@@ -15,8 +15,10 @@ map=[0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105];  %default map
 sizes = max(map);
 mapGrid = zeros(sizes(1)+1,sizes(2)+1); %overcome 0 indexing
 size(mapGrid)
-fCostsMap = zeros(sizes(1)+1,sizes(2)+1)+1000; %make a cost matrix - overcoming 1 indexing
-fCostsMap(start(1)+1,start(2)+1) = 0; %set start cost to zero 
+gCostsMap = zeros(sizes(1)+1,sizes(2)+1)+1000; %make a cost matrix - overcoming 1 indexing
+gCostsMap(start(1)+1,start(2)+1) = 0; %set start cost to zero 
+hCostsMap = zeros(sizes(1)+1,sizes(2)+1);
+fCostsMap = gCostsMap + hCostsMap; % Which node is explored next completely depends on the fCostsMap. I will make sure this happens after ensuring heuristics get included and added in the script.
 for i=1:sizes(1)
     for j=1:sizes(2)
         if inpolygon(i,j,map(:,1),map(:,2)) == 1 %This is equivalent to botSim.pointInsideMap(mapGrid(i,j)) == 1 
@@ -38,14 +40,14 @@ while length(open) ~= 0
    %I need some sort of way of preventing nodes from outside of the map
    %being expanded. Quite a serious issue as everything will break if one
    %is tried to be opened.
-   currentNodeF = fCostsMap(currentNode(1)+1,currentNode(2)+1);
+   currentNodeG = gCostsMap(currentNode(1)+1,currentNode(2)+1);
    for i = 1:openSize(1)
        testNode = open(i,:); 
-       testNodeF = fCostsMap(testNode(1)+1,testNode(2)+1);
-       if testNodeF <= currentNodeF
+       testNodeG = gCostsMap(testNode(1)+1,testNode(2)+1);
+       if testNodeG <= currentNodeG
            currentNode = testNode;
            currentNodeLoc = i;
-           currentNodeF = testNodeF;
+           currentNodeG = testNodeG;
        end
    end
    
@@ -70,10 +72,10 @@ while length(open) ~= 0
            if inpolygon(neighbour(1)+1,neighbour(2)+1,map(:,1),map(:,2)) == 1 %no need for +1 here due to both being pre-calibrated
                neighbourList = [neighbourList;neighbour];
                %Find F of neighbour
-               neighbourF = currentNodeF + norm([[0 0] [i j]]); %fcost of node + distance to neighbour
+               neighbourG = currentNodeG + norm([[0 0] [i j]]); %fcost of node + distance to neighbour
                %Update the neighbour's fCost matrix value IF this path to the specific node is shorted.
-               if neighbourF < fCostsMap(neighbour(1)+1,neighbour(2)+1)
-                   fCostsMap(neighbour(1)+1,neighbour(2)+1) = neighbourF;
+               if neighbourG < gCostsMap(neighbour(1)+1,neighbour(2)+1)
+                   gCostsMap(neighbour(1)+1,neighbour(2)+1) = neighbourG;
                end
            end
        end
@@ -83,16 +85,15 @@ while length(open) ~= 0
    for i = 1:neighbourListLength(1)
        open(end+1,:) = neighbourList(i);
    end    
-%    open.add('All surrounding states')
 
 %    calculate h(x) for all of the neighbouring nodes  --- I've only made a
 %    very small start on this. I fear I'm going too deep without having
 %    tested any of the code so far.
-%    for i = 1:length(neighbourList)
-%        if [neighbour(i),neighbour(i+length(neighbourList))] ISMEMBER closed
-%            continue
-%        end
-%    end
+   for i = 1:neighbourListLength
+       if [neighbour(i),neighbour(i+length(neighbourList))] ISMEMBER closed
+           continue
+       end
+   end
 %    
 %    for 'each neighbour of currentNode(in all directions)'
 %         if neighbour 'in closed'

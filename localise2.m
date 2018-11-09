@@ -32,36 +32,55 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     angles = zeros(1,num);
     angles2 = angles;
     for i = 1:num %For each particle
+        %Check that particle is within map
+        if particles(i).insideMap() == 0
+            particles(i).randomPose(5)
+        end
         locations(:,i) = particles(i).getBotPos(); % Save particle location
     end
     %% Write code for scoring your particles
     %Matrix initialisations
     probabilities = zeros(1,num);
+    partWeight = zeros(sensors,1);
     dampFactor = 1e-30;
+    var = 1;
     
     for i = 1:num
         particleDistance = particles(i).ultraScan(); % Particle distance reading
-        currBestDist = particleDistance; % Current particle position object
+%         currBestDist = particleDistance; % Current particle position object
        
         %Maybe investigate NORMPDF - normpdf returns high for identical
         %vectors when variance is low. High variance and identical vectors
         %doesn't return high value. A vector and its backwards self return
         %low no matter what.
-        currRotProb = mean(normpdf(particleDistance,robotDist,2)); %Probability of robot being at current orientation
-        newAngle = particles(i).getBotAng(); % Angle of particle
-        for j = 1:size(particleDistance)-1 % Check all other particle orientations
-            %Find the most similar orientation of reading and assume correct.
-            possDist = circshift(particleDistance,j); % Find possible rotation distances
-            newRotProb = mean(normpdf(possDist,robotDist,2)); % Probability of possible rotation
-            if newRotProb < currRotProb % If new rotation appears better than previous
-                currBestDist = possDist; % Set current position distances to the rotated distances
-                currRotProb = newRotProb; % Current best probability gets set to new orientation
-                rotAngle = 2*pi*(j/length(particleDistance));
-                newAngle = particles(i).getBotAng() + rotAngle;  % Update angle
-            end
+        
+        for j = 1:sensors
+            possDist = circshift(particleDistance,j);
+            currDiff = norm(possDist - robotDist);
+            partWeight(j) = (1/sqrt(2*pi*var))*exp(-(currDiff)^2/(2*var));
         end
-        probabilities(i) = currRotProb + dampFactor; % mean(normpdf(currBestDist,robotDist,2)) % Mean probability of distance measures to robot
-        angles(i) = newAngle; % Set angle %Using this as a debugger, it appears that the angles are converging!!
+        
+%         difference = norm(robotDist-currBestDist);
+%         currRotProb = (1/sqrt(2*pi*var))*exp(-(difference)^2/(2*var));
+% %         currRotProb = mean(normpdf(particleDistance,robotDist,var)); %Probability of robot being at current orientation
+%         newAngle = particles(i).getBotAng(); % Angle of particle
+%         for j = 1:size(particleDistance)-1 % Check all other particle orientations
+%             %Find the most similar orientation of reading and assume correct.
+%             possDist = circshift(particleDistance,j); % Find possible rotation distances
+%             currDiff = norm(robotDist-possDist);
+%             newRotProb = (1/sqrt(2*pi*var))*exp(-(currDiff)^2/(2*var));
+% %             newRotProb = mean(normpdf(possDist,robotDist,var)); % Probability of possible rotation
+%             if newRotProb > currRotProb % If new rotation appears better than previous
+%                 currBestDist = possDist; % Set current position distances to the rotated distances
+%                 currRotProb = newRotProb; % Current best probability gets set to new orientation
+%                 rotAngle = 2*pi*(j/length(particleDistance));
+%                 newAngle = particles(i).getBotAng() + rotAngle;  % Update angle
+%             end
+%         end
+
+        [bestProb,bestRot] = max(partWeight);
+        probabilities(i) = bestProb + dampFactor; % mean(normpdf(currBestDist,robotDist,2)) % Mean probability of distance measures to robot
+        angles(i) = particles(i).getBotAng() + 2*pi*(bestRot/sensors); % Set angle %Using this as a debugger, it appears that the angles are converging!!
        % angles2(i) = botSim.getBotAng();
     end
     %% Write code for resampling your particles
