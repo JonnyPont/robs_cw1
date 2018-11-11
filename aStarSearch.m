@@ -1,15 +1,25 @@
-function [ nextNode ] = aStarSearch(start,goal)
+function [path] = aStarSearch(start,goal)
 % A* search algorithm - printing the values of the nodes that get entered
 % into open shows there must be some sort of bug somewhere for nodes where i=j
 closed = [];
 open = start;
+completable = 1;
 
 map=[0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105];  %default map
 robot = BotSim(map,[0.01,0.005,0]);  %sets up a botSim object a map, and debug mode on.
 
+%Ensure problem is possible before starting
+if ~inpolygon(start(1),start(2),map(:,1),map(:,2))
+    fprintf('Start point not in map')
+    completable = 0;
+elseif ~inpolygon(goal(1),goal(2),map(:,1),map(:,2))
+    fprintf('Goal point not in map')
+    completable = 0;
+end
+
 sizes = max(map);
 mapGrid = zeros(sizes(1)+1,sizes(2)+1); % overcome 0 indexing
-resolution = 1;
+resolution = 5;
 size(mapGrid);
 
 % initialise g(x) - inf and h(x) - based on euclidean distances
@@ -24,7 +34,7 @@ for i=1:resolution:sizes(1)+1
     end
 end
 
-while length(open) ~= 0
+while isempty(open) == 0 && completable == 1
     %open all nodes in open storing the cost g(x) to get to them.
     openSize = size(open); %Get list length of open
     currentNode = open(1,:); % Get two corresponding points
@@ -39,6 +49,10 @@ while length(open) ~= 0
             check = 0;
             alreadyExplored = 0;
             neighbourTemp = [i,j];
+            %I should make an iteration where the first loop, the code
+            %should check if the goal destination is visible and if it is,
+            %then move straight to it. ie. as soon as the goal is in sight,
+            %go for it.
             
             %Test if node has been explored already
             for testClosed = 1:lengthClosed(1)
@@ -72,9 +86,6 @@ while length(open) ~= 0
     end
     
     neighbourList;
-    neighbourList(2,1);
-    length(neighbourList);
-    %    length(neighbourList)
     %This neighbour list is good and correct. Need to go on to find g scores
     %of each member next!
     
@@ -83,27 +94,36 @@ while length(open) ~= 0
         dist = distance(currentNode,neighbourList(i,:));
         newGScore = dist + currentNodeG;
         gCostsMap(neighbourList(i,1),neighbourList(i,2));
-        if newGScore < gCostsMap(neighbourList(i,1),neighbourList(i,2))
-            gCostsMap(neighbourList(i,1),neighbourList(i,2)) = newGScore;
-            parents{neighbourList(i,1),neighbourList(i,2)} = currentNode;
-            tempFScores(i) = newGScore + hCostsMap(neighbourList(i,1),neighbourList(i,2));
+        if newGScore < gCostsMap(neighbourList(i,1)+1,neighbourList(i,2)+1)
+            gCostsMap(neighbourList(i,1)+1,neighbourList(i,2)+1) = newGScore;
+            neighbourList(i,1);
+            neighbourList(i,2);
+            parents{neighbourList(i,1)+1,neighbourList(i,2)+1} = currentNode; 
+            tempFScores(i) = newGScore + hCostsMap(neighbourList(i,1)+1,neighbourList(i,2)+1);
         end
     end
-    
-    [lowestFScore,nextNodeIndex] = min(tempFScores);
+        
+% Find the last lowest value in the list. The idea is that will be furthest
+% away in the right direction, given the case where multiple nodes have the
+% same score. Better to move big.
+    nextNodeIndex = find(tempFScores==min(tempFScores),1,'last');
     open = []; %only one node stored so reset open
-    open(end+1,:) = [neighbourList(nextNodeIndex,1) neighbourList(nextNodeIndex,2)]
+    open(end+1,:) = [neighbourList(nextNodeIndex,1) neighbourList(nextNodeIndex,2)];
     closed(end+1,:) = [currentNode(1) currentNode(2)]; %add explored node to closed
-    for i = 1:length(neighbourList)
-        gCostsMap(neighbourList(i,1),neighbourList(i,2));
-    end
     
     if open(1,:) == goal
         fprintf("YEET")
+        %Need to trace back through the parents matrix to find the path.
+        nodePathTrack = open(1,:);
+        path = nodePathTrack;
+        while nodePathTrack ~= start
+            nodePathTrack = parents{nodePathTrack(1)+1,nodePathTrack(2)+1};
+            path(end+1,:) = nodePathTrack;
+        end
         break
     end
     
-    break
+    
    
    
    
