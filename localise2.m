@@ -41,7 +41,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     %Matrix initialisations
     probabilities = zeros(1,num);
     partWeight = zeros(sensors,1);
-    dampFactor = 0;
+    dampFactor = 0.01;
     var = 100;
     
     for i = 1:num
@@ -53,7 +53,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         end
         [bestProb,bestRot] = max(partWeight);
         probabilities(i) = bestProb + dampFactor; % mean(normpdf(currBestDist,robotDist,2)) % Mean probability of distance measures to robot
-        angles(i) = particles(i).getBotAng() + 2*pi*(bestRot/sensors); % Set angle %Using this as a debugger, it appears that the angles are converging!!
+        angles(i) = particles(i).getBotAng() + 2*pi*(bestRot/sensors); % Set angle 
     end
     %% Write code for resampling your particles
 
@@ -68,7 +68,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         cumProbs = cumsum(probabilities);
         newLocIndex = find(seed <= cumProbs,1);
         particles(i).setBotPos([locations(1,newLocIndex)'+2*rand-1 locations(2,newLocIndex)'+2*rand-1]);
-        particles(i).setBotAng(angles(newLocIndex)+0.2*rand-0.1); % Angle never seems to converge
+        particles(i).setBotAng(angles(newLocIndex)+0.2*rand-0.1);
     end
     %% Write code to check for convergence
     %Save updated particle locations
@@ -76,7 +76,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         locations(:,i) = particles(i).getBotPos();
     end
     %Check for convergence
-    if std(locations(1,:)) < 2 && std(locations(2,:)) < 2
+    if std(locations(1,:)) < 2 && std(locations(2,:)) < 2 %should probably check 3 times to be sure
         fprintf('CONVERGED')
         converged = 1;
     end
