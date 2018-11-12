@@ -32,7 +32,7 @@ end
 
 %I need to make sure that this only ever gives 1 value. Even when
 %equidistant - equidistance isn't the issue
-[minVal,minValIndexSquashed] = min(reshape(startCostsMap, numel(startCostsMap),1));
+[~,minValIndexSquashed] = min(reshape(startCostsMap, numel(startCostsMap),1));
 [indexI,indexJ] = ind2sub(size(startCostsMap),minValIndexSquashed);
 gCostsMap(indexI+1,indexJ+1) = 0; %set start cost to zero
 firstNode = [indexI indexJ];
