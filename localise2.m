@@ -1,9 +1,10 @@
-function [botSim,probabilities,locations] = localise2(botSim,map,target)
+function [botSim,probabilities,locations] = localise2(botSim,map,target,var)
 %This function returns botSim, and accepts, botSim, a map and a target.
 %LOCALISE Template localisation function
 
 %% setup code
 %you can modify the map to take account of your robots configuration space
+% map=[0,0;0,50;75,50;75,65;10,65;10,85;35,85;35,125;10,125;10,145;75,145;75,85;110,85;110,155;125,155;125,40;150,40;150,15;100,15;100,0;80,0;80,30;40,30;40,0];
 modifiedMap = map; %you need to do this modification yourself
 botSim.setMap(modifiedMap);
 
@@ -41,8 +42,8 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     %Matrix initialisations
     probabilities = zeros(1,num);
     partWeight = zeros(sensors,1);
-    dampFactor = 0.01;
-    var = 100;
+    dampFactor = 1e-6;
+%     var = 100;
     
     for i = 1:num
         particleDistance = particles(i).ultraScan(); % Particle distance reading
@@ -52,7 +53,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
             partWeight(j) = (1/sqrt(2*pi*var))*exp(-(currDiff)^2/(2*var));
         end
         [bestProb,bestRot] = max(partWeight);
-        probabilities(i) = bestProb + dampFactor; % mean(normpdf(currBestDist,robotDist,2)) % Mean probability of distance measures to robot
+        probabilities(i) = bestProb + dampFactor; % Mean probability of distance measures to robot
         angles(i) = particles(i).getBotAng() + 2*pi*(bestRot/sensors); % Set angle 
     end
     %% Write code for resampling your particles
@@ -76,7 +77,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         locations(:,i) = particles(i).getBotPos();
     end
     %Check for convergence
-    if std(locations(1,:)) < 2 && std(locations(2,:)) < 2 %should probably check 3 times to be sure
+    if std(locations(1,:)) < 3 && std(locations(2,:)) < 3 %should probably check 3 times to be sure
         fprintf('CONVERGED')
         converged = 1;
     end

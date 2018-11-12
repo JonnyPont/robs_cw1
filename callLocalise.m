@@ -17,7 +17,8 @@ target = robot.getRndPtInMap(10);  %gets random target.
 tic %starts timer
 
 %your localisation function is called here.
-[returnedBot,probabilities,locations] = localise2(robot,map,target); %Where the magic happens
+var = 100;
+[returnedBot,probabilities,locations] = localise2(robot,map,target,var); %Where the magic happens
 resultsTime = toc %stops timer
 
 %calculated how far away your robot is from the target.
