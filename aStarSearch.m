@@ -1,14 +1,8 @@
-function [path] = aStarSearch(start,goal)
+function [path] = aStarSearch(start,goal,map,resolution)
 % A* search algorithm - printing the values of the nodes that get entered
 % into open shows there must be some sort of bug somewhere for nodes where i=j
-closed = [];
-open = start;
-completable = 1;
-
-map=[0,0;60,0;60,45;45,45;45,59;106,59;106,105;0,105];  %default map
-robot = BotSim(map,[0.01,0.005,0]);  %sets up a botSim object a map, and debug mode on.
-
 %Ensure problem is possible before starting
+
 if ~inpolygon(start(1),start(2),map(:,1),map(:,2))
     fprintf('Start point not in map')
     completable = 0;
@@ -19,26 +13,43 @@ end
 
 sizes = max(map);
 mapGrid = zeros(sizes(1)+1,sizes(2)+1); % overcome 0 indexing
-resolution = 5;
 size(mapGrid);
 
 % initialise g(x) - inf and h(x) - based on euclidean distances
 gCostsMap = zeros(sizes(1)+1,sizes(2)+1)+Inf; %make a cost matrix - overcoming 1 indexing
+startCostsMap = zeros(sizes(1)+1,sizes(2)+1)+Inf; %make a cost matrix - overcoming 1 indexing
 parents = cell(sizes(1)+1,sizes(2)+1);
-gCostsMap(start(1)+1,start(2)+1) = 0; %set start cost to zero
 hCostsMap = zeros(sizes(1)+1,sizes(2)+1);
+
+
+%Find nearest node to start position.
+
 
 for i=1:resolution:sizes(1)+1
     for j=1:resolution:sizes(2)+1
         hCostsMap(i,j) = distance([i j],goal);
+        startCostsMap(i,j) = distance([i j],start);
+        plot(i,j,'k.')
     end
 end
 
+%I need to make sure that this only ever gives 1 value. Even when
+%equidistant
+[minVal,minValIndexSquashed] = min(reshape(startCostsMap, numel(startCostsMap),1));
+[indexI,indexJ] = ind2sub(size(startCostsMap),minValIndexSquashed)
+gCostsMap(indexI+1,indexJ+1) = 0; %set start cost to zero
+firstNode = [indexI indexJ];
+
+
+closed = [];
+open = firstNode;
+completable = 1;
 while isempty(open) == 0 && completable == 1
     %open all nodes in open storing the cost g(x) to get to them.
     openSize = size(open); %Get list length of open
     currentNode = open(1,:); % Get two corresponding points
     currentNodeG = gCostsMap(currentNode(1)+1,currentNode(2)+1);
+    goalVisible = 1;
     
     % use intersection code to find visible nodes.
     neighbourList = [];
@@ -53,6 +64,16 @@ while isempty(open) == 0 && completable == 1
             %should check if the goal destination is visible and if it is,
             %then move straight to it. ie. as soon as the goal is in sight,
             %go for it.
+            for k = 1:length(map)
+                if k <length(map)
+                    x = intersection1([currentNode goal],[map(k,:),map(k+1,:)]);
+                elseif k == length(map)
+                    x = intersection1([currentNode goal],[map(k,:),map(1,:)]);
+                end
+                if ~isnan(x)
+                    goalVisible = 0;
+                end
+            end
             
             %Test if node has been explored already
             for testClosed = 1:lengthClosed(1)
@@ -89,8 +110,9 @@ while isempty(open) == 0 && completable == 1
     %This neighbour list is good and correct. Need to go on to find g scores
     %of each member next!
     
-    tempFScores = zeros(1,length(neighbourList));
-    for i = 1:length(neighbourList)
+    lengthNeighbourList = size(neighbourList);    
+    tempFScores = zeros(1,lengthNeighbourList(1));
+    for i = 1:lengthNeighbourList(1)
         dist = distance(currentNode,neighbourList(i,:));
         newGScore = dist + currentNodeG;
         gCostsMap(neighbourList(i,1),neighbourList(i,2));
@@ -100,34 +122,49 @@ while isempty(open) == 0 && completable == 1
             neighbourList(i,2);
             parents{neighbourList(i,1)+1,neighbourList(i,2)+1} = currentNode; 
             tempFScores(i) = newGScore + hCostsMap(neighbourList(i,1)+1,neighbourList(i,2)+1);
+        else
+            tempFScores(i) = gCostsMap(neighbourList(i,1)+1,neighbourList(i,2)+1) + hCostsMap(neighbourList(i,1)+1,neighbourList(i,2)+1);
         end
     end
         
-% Find the last lowest value in the list. The idea is that will be furthest
+    tempFScores;
+
+    
+    if goalVisible == 1
+        fprintf('Goal found')
+        nodePathTrack = open(1,:);
+        path = [goal;nodePathTrack];
+        while nodePathTrack(1) ~= firstNode(1) || nodePathTrack(2) ~= firstNode(2)
+            nodePathTrack = parents{nodePathTrack(1)+1,nodePathTrack(2)+1};
+            path(end+1,:) = nodePathTrack;
+        end
+        path(end+1,:) = start;
+        break
+    elseif open(1,:) == goal
+        fprintf("YEET")
+        %Need to trace back through the parents matrix to find the path.
+        nodePathTrack = open(1,:);
+        path = nodePathTrack;
+        while nodePathTrack(1) ~= firstNode(1) || nodePathTrack(2) ~= firstNode(2)
+            nodePathTrack = parents{nodePathTrack(1)+1,nodePathTrack(2)+1};
+            path(end+1,:) = nodePathTrack;
+        end
+        path(end+1,:) = start;
+        break
+    end   
+
+    % Find the last lowest value in the list. The idea is that will be furthest
 % away in the right direction, given the case where multiple nodes have the
 % same score. Better to move big.
     nextNodeIndex = find(tempFScores==min(tempFScores),1,'last');
     open = []; %only one node stored so reset open
     open(end+1,:) = [neighbourList(nextNodeIndex,1) neighbourList(nextNodeIndex,2)];
     closed(end+1,:) = [currentNode(1) currentNode(2)]; %add explored node to closed
+%     if ~isempty(nextNodeIndex)
+% %         fprintf('problemo')
+% 
+%     end
     
-    if open(1,:) == goal
-        fprintf("YEET")
-        %Need to trace back through the parents matrix to find the path.
-        nodePathTrack = open(1,:);
-        path = nodePathTrack;
-        while nodePathTrack ~= start
-            nodePathTrack = parents{nodePathTrack(1)+1,nodePathTrack(2)+1};
-            path(end+1,:) = nodePathTrack;
-        end
-        break
-    end
-    
-    
-   
-   
-   
-   
 %    for i = 1:openSize(1)
 %        testNode = open(i,:); 
 %        testNodeG = gCostsMap(testNode(1)+1,testNode(2)+1);
