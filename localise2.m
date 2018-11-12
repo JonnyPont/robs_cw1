@@ -1,4 +1,4 @@
-function [botSim,probabilities,locations] = localise2(botSim,map,target,var)
+function [botSim] = localise2(botSim,map,target,var)
 %This function returns botSim, and accepts, botSim, a map and a target.
 %LOCALISE Template localisation function
 
@@ -42,8 +42,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     %Matrix initialisations
     probabilities = zeros(1,num);
     partWeight = zeros(sensors,1);
-    dampFactor = 1e-20;
-%     var = 100;
+    dampFactor = 0;
     
     for i = 1:num
         particleDistance = particles(i).ultraScan(); % Particle distance reading
@@ -81,6 +80,8 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         convergedCount = 0;
     end
     if convergedCount == 3
+%         botSim.setBotPos(mean(locations(1,:)) mean(locations(2,:))) This
+%         acts as pseudocode for now
         converged = 1;
     end
     %% Write code to decide how to move next
