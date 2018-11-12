@@ -42,7 +42,7 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     %Matrix initialisations
     probabilities = zeros(1,num);
     partWeight = zeros(sensors,1);
-    dampFactor = 1e-6;
+    dampFactor = 1e-20;
 %     var = 100;
     
     for i = 1:num
@@ -57,11 +57,8 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         angles(i) = particles(i).getBotAng() + 2*pi*(bestRot/sensors); % Set angle 
     end
     %% Write code for resampling your particles
-
-    totalWeight = sum(probabilities);
-    for i = 1:num
-        probabilities(i) = probabilities(i)/totalWeight;
-    end    
+    
+    probabilities = probabilities/sum(probabilities);
     
     %Roulette Wheel Sampling
     for i=1:num
@@ -77,8 +74,13 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         locations(:,i) = particles(i).getBotPos();
     end
     %Check for convergence
-    if std(locations(1,:)) < 3 && std(locations(2,:)) < 3 %should probably check 3 times to be sure
+    if std(locations(1,:)) < 2 && std(locations(2,:)) < 2 %should probably check 3 times to be sure
         fprintf('CONVERGED')
+        convergedCount = convergedCount + 1;
+    else 
+        convergedCount = 0;
+    end
+    if convergedCount == 3
         converged = 1;
     end
     %% Write code to decide how to move next
