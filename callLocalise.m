@@ -36,12 +36,22 @@ drawnow;
 robot.randomPose(10); %puts the robot in a random position at least 10cm away from a wall
 target = robot.getRndPtInMap(10);  %gets random target.
 
-tic %starts timer
-
 %your localisation function is called here.
 var = 100;
-returnedBot = localise2(robot,map,target,var); %Where the magic happens
-resultsTime = toc %stops timer
+tableOfResults =[];
+% for numParticles = 25:25:50
+%     tableOfResultsTemp = [];
+%     for i = 1:25
+%         tic; %starts timer
+%         returnedBot = localise2(robot,map,target,var,numParticles); %Where the magic happens
+%         resultsTime = toc; %stops timer
+%         tableOfResultsTemp(end+1) = resultsTime;
+%     end
+%     tableOfResults(end+1) = mean(tableOfResultsTemp)
+% end
+numParticles = 300;
+returnedBot = localise2(robot,map,target,var,numParticles); %Where the magic happens
 
+% plot(tableOfResults)
 %calculated how far away your robot is from the target.
 resultsDis =  distance(target, returnedBot.getBotPos())

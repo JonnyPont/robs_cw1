@@ -1,4 +1,4 @@
-function [botSim] = localise2(botSim,map,target,var)
+function [botSim] = localise2(botSim,map,target,var,numParticles)
 %This function returns botSim, and accepts, botSim, a map and a target.
 %LOCALISE Template localisation function
 
@@ -9,7 +9,7 @@ modifiedMap = map; %you need to do this modification yourself
 botSim.setMap(modifiedMap);
 
 %generate some random particles inside the map
-num =300; % number of particles
+num =numParticles; % number of particles
 sensors = 6;
 particles(num,1) = BotSim; %how to set up a vector of objects
 for i = 1:num
@@ -23,6 +23,7 @@ botSim.setScanConfig(botSim.generateScanConfig(sensors));
 maxNumOfIterations = 30;
 n = 0;
 converged =0; %The filter has not converged yet
+convergedCount = 0;
 while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
     n = n+1; %increment the current number of iterations
     robotDist = botSim.ultraScan(); %get a scan from the real robot.
@@ -73,15 +74,24 @@ while(converged == 0 && n < maxNumOfIterations) %%particle filter loop
         locations(:,i) = particles(i).getBotPos();
     end
     %Check for convergence
-    if std(locations(1,:)) < 2 && std(locations(2,:)) < 2 %should probably check 3 times to be sure
+    if std(locations(1,:)) < 2 && std(locations(2,:)) < 2
         fprintf('CONVERGED')
         convergedCount = convergedCount + 1;
     else 
         convergedCount = 0;
     end
     if convergedCount == 3
-%         botSim.setBotPos(mean(locations(1,:)) mean(locations(2,:))) This
-%         acts as pseudocode for now
+%         botSim.setBotPos(mean(locations(1,:)) mean(locations(2,:)))
+        positionEstimate = [mean(locations(1,:)) mean(locations(2,:))]
+        positionActual = botSim.getBotPos()
+        convergenceScore = norm(positionEstimate - positionActual)
+        
+        for i = 1:num
+            particles(i).setBotPos([positionActual(1)+2*rand-1 positionActual(2)+2*rand-1]);
+            locations(:,i) = particles(i).getBotPos();
+        end
+        inherentPositionError = [mean(locations(1,:)) mean(locations(2,:))]
+        convergenceScoreInherent = norm(inherentPositionError - positionActual)
         converged = 1;
     end
     %% Write code to decide how to move next
